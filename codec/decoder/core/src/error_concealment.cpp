@@ -97,10 +97,10 @@ void DoErrorConSliceCopy (PWelsDecoderContext pCtx) {
   int32_t iMbHeight = (int32_t) pCtx->pSps->iMbHeight;
   PPicture pDstPic = pCtx->pDec;
   PPicture pSrcPic = pCtx->pPreviousDecodedPictureInDpb;
-
+  int32_t iMbNum = pCtx->pSps->iMbWidth * pCtx->pSps->iMbHeight;
   //uint8_t *pDstData[3], *pSrcData[3];
   bool* pMbCorrectlyDecodedFlag = pCtx->pCurDqLayer->pMbCorrectlyDecodedFlag;
-
+  int32_t iMbEcedNum = 0;
   //Do slice copy late
   int32_t iMbXyIndex;
   uint8_t* pSrcData, *pDstData;
@@ -110,6 +110,7 @@ void DoErrorConSliceCopy (PWelsDecoderContext pCtx) {
     for (int32_t iMbX = 0; iMbX < iMbWidth; ++iMbX) {
       iMbXyIndex = iMbY * iMbWidth + iMbX;
       if (!pMbCorrectlyDecodedFlag[iMbXyIndex]) {
+		  iMbEcedNum++;
         if (pSrcPic != NULL) {
           iSrcStride = pSrcPic->iLinesize[0];
           //Y component
@@ -147,6 +148,7 @@ void DoErrorConSliceCopy (PWelsDecoderContext pCtx) {
       } //!pMbCorrectlyDecodedFlag[iMbXyIndex]
     } //iMbX
   } //iMbY
+  pCtx->sDecoderStatistics.uiAvgEcRatio = (iMbEcedNum*100) / iMbNum ;
 }
 
 

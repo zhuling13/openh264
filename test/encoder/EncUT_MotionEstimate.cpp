@@ -73,58 +73,58 @@ class MotionEstimateTest : public ::testing::Test {
 };
 
 
-TEST_F (MotionEstimateTest, TestDiamondSearch) {
-#define TEST_POS (5)
-  const int32_t kiPositionToCheck[TEST_POS][2] = {{0, 0}, {0, 1}, {1, 0}, {0, -1}, { -1, 0}};
-  const int32_t kiMaxBlock16Sad = 72000;//a rough number
-  SWelsFuncPtrList sFuncList;
-  SWelsME sMe;
-  SSlice sSlice;
-  memset (&sSlice, 0, sizeof (sSlice));
-
-  const uint8_t kuiQp = rand() % 52;
-  InitMe (kuiQp, 648, m_uiMvdTableSize, m_pMvdCostTable, &sMe);
-
-  SMVUnitXY sTargetMv;
-  WelsInitSampleSadFunc (&sFuncList, 0); //test c functions
-
-  uint8_t* pRefPicCenter = m_pRefData + (m_iHeight / 2) * m_iWidth + (m_iWidth / 2);
-  bool bDataGeneratorSucceed = false;
-  bool bFoundMatch = false;
-  int32_t i, iTryTimes;
-  for (i = 0; i < TEST_POS; i++) {
-    sTargetMv.iMvX = kiPositionToCheck[i][0];
-    sTargetMv.iMvY = kiPositionToCheck[i][1];
-    iTryTimes = 100;
-    bDataGeneratorSucceed = false;
-    bFoundMatch = false;
-    while (!bFoundMatch && (iTryTimes--) > 0) {
-      if (!YUVPixelDataGenerator (m_pRefData, m_iWidth, m_iHeight, m_iWidth))
-        continue;
-
-      bDataGeneratorSucceed = true;
-      CopyTargetBlock (m_pSrcBlock, 16, sTargetMv, m_iWidth, pRefPicCenter);
-
-      //clean the sMe status
-      sMe.uiBlockSize = rand() % 5;
-      sMe.pEncMb = m_pSrcBlock;
-      sMe.pRefMb = pRefPicCenter;
-      sMe.sMv.iMvX = sMe.sMv.iMvY = 0;
-      sMe.uiSadCost = sMe.uiSatdCost = kiMaxBlock16Sad;
-      WelsDiamondSearch (&sFuncList, &sMe, &sSlice, m_iMaxSearchBlock, m_iWidth);
-
-      //the last selection may be affected by MVDcost, that is when (0,0) will be better
-      //when comparing (1,1) and (1,0), due to the difference between MVD cost, it is possible that (1,0) is selected while the best match is (1,1)
-      bFoundMatch = ((sMe.sMv.iMvX == (sTargetMv.iMvX)) || (sMe.sMv.iMvX == 0)) && ((sMe.sMv.iMvY == (sTargetMv.iMvY))
-                    || (sMe.sMv.iMvY == 0));
-    }
-    if (bDataGeneratorSucceed) {
-      //if DataGenerator never succeed, there is no meaning to check iTryTimes
-      ASSERT_TRUE (iTryTimes > 0);
-      //it is possible that ref at differnt position is identical, but that should be under a low probability
-    }
-  }
-}
+//TEST_F (MotionEstimateTest, TestDiamondSearch) {
+//#define TEST_POS (5)
+//  const int32_t kiPositionToCheck[TEST_POS][2] = {{0, 0}, {0, 1}, {1, 0}, {0, -1}, { -1, 0}};
+//  const int32_t kiMaxBlock16Sad = 72000;//a rough number
+//  SWelsFuncPtrList sFuncList;
+//  SWelsME sMe;
+//  SSlice sSlice;
+//  memset (&sSlice, 0, sizeof (sSlice));
+//
+//  const uint8_t kuiQp = rand() % 52;
+//  InitMe (kuiQp, 648, m_uiMvdTableSize, m_pMvdCostTable, &sMe);
+//
+//  SMVUnitXY sTargetMv;
+//  WelsInitSampleSadFunc (&sFuncList, 0); //test c functions
+//
+//  uint8_t* pRefPicCenter = m_pRefData + (m_iHeight / 2) * m_iWidth + (m_iWidth / 2);
+//  bool bDataGeneratorSucceed = false;
+//  bool bFoundMatch = false;
+//  int32_t i, iTryTimes;
+//  for (i = 0; i < TEST_POS; i++) {
+//    sTargetMv.iMvX = kiPositionToCheck[i][0];
+//    sTargetMv.iMvY = kiPositionToCheck[i][1];
+//    iTryTimes = 100;
+//    bDataGeneratorSucceed = false;
+//    bFoundMatch = false;
+//    while (!bFoundMatch && (iTryTimes--) > 0) {
+//      if (!YUVPixelDataGenerator (m_pRefData, m_iWidth, m_iHeight, m_iWidth))
+//        continue;
+//
+//      bDataGeneratorSucceed = true;
+//      CopyTargetBlock (m_pSrcBlock, 16, sTargetMv, m_iWidth, pRefPicCenter);
+//
+//      //clean the sMe status
+//      sMe.uiBlockSize = rand() % 5;
+//      sMe.pEncMb = m_pSrcBlock;
+//      sMe.pRefMb = pRefPicCenter;
+//      sMe.sMv.iMvX = sMe.sMv.iMvY = 0;
+//      sMe.uiSadCost = sMe.uiSatdCost = kiMaxBlock16Sad;
+//      WelsDiamondSearch (&sFuncList, &sMe, &sSlice, m_iMaxSearchBlock, m_iWidth);
+//
+//      //the last selection may be affected by MVDcost, that is when (0,0) will be better
+//      //when comparing (1,1) and (1,0), due to the difference between MVD cost, it is possible that (1,0) is selected while the best match is (1,1)
+//      bFoundMatch = ((sMe.sMv.iMvX == (sTargetMv.iMvX)) || (sMe.sMv.iMvX == 0)) && ((sMe.sMv.iMvY == (sTargetMv.iMvY))
+//                    || (sMe.sMv.iMvY == 0));
+//    }
+//    if (bDataGeneratorSucceed) {
+//      //if DataGenerator never succeed, there is no meaning to check iTryTimes
+//      ASSERT_TRUE (iTryTimes > 0);
+//      //it is possible that ref at differnt position is identical, but that should be under a low probability
+//    }
+//  }
+//}
 
 class MotionEstimateRangeTest : public ::testing::Test {
  public:
@@ -198,99 +198,99 @@ class MotionEstimateRangeTest : public ::testing::Test {
   int32_t m_iNumDependencyLayers;
 };
 
-TEST_F (MotionEstimateRangeTest, TestDiamondSearch) {
-
-  const int32_t kiMaxBlock16Sad = 72000;//a rough number
-  uint8_t* pRef = m_pRefStart + PADDING_LENGTH * m_iWidthExt + PADDING_LENGTH;
-  SWelsFuncPtrList sFuncList;
-  SWelsME sMe;
-  SSlice sSlice;
-  const uint8_t kuiQp = rand() % 52;
-  InitMe (kuiQp, m_uiMvdInterTableSize, m_uiMvdInterTableStride, m_pMvdCostTable, &sMe);
-
-  WelsInitSampleSadFunc (&sFuncList, 0); //test c functions
-
-  memset (&sSlice, 0, sizeof (sSlice));
-  memset (m_pSrc, 128, m_iWidth * m_iHeight);
-  memset (m_pRefStart, 0, m_iWidthExt * m_iHeightExt);
-
-  sMe.uiBlockSize = BLOCK_16x16; //
-
-  sMe.sMvp.iMvX = rand() % m_iMvRange;
-  sMe.sMvp.iMvY = rand() % m_iMvRange;
-
-  for (int h = 0; h < m_iHeight; h++)
-    memset (pRef + h * m_iWidthExt, h, m_iWidthExt);
-
-  sMe.pEncMb = m_pSrc;
-
-  sMe.sMv.iMvX = sMe.sMvp.iMvX;
-  sMe.sMv.iMvY = sMe.sMvp.iMvY;
-
-  sMe.uiSadCost = sMe.uiSatdCost = kiMaxBlock16Sad;
-  SetMvWithinIntegerMvRange (m_iMbWidth, m_iMbHeight,     0, 0, m_iMvRange,
-                             & (sSlice.sMvStartMin), & (sSlice.sMvStartMax));
-
-
-  sMe.pRefMb = pRef + sMe.sMvp.iMvY * m_iWidthExt;
-  WelsDiamondSearch (&sFuncList, &sMe, &sSlice, m_iWidth, m_iWidthExt);
-
-  if ((WELS_ABS (sMe.sMv.iMvX) > m_iMvRange))
-    printf ("mvx = %d\n", sMe.sMv.iMvX);
-  ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvX) > m_iMvRange));
-  if ((WELS_ABS (sMe.sMv.iMvY) > m_iMvRange))
-    printf ("mvy = %d\n", sMe.sMv.iMvY);
-  ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvY) > m_iMvRange));
-
-
-}
-
-TEST_F (MotionEstimateRangeTest, TestWelsMotionCrossSearch) {
-
-  SWelsFuncPtrList sFuncList;
-  SWelsME sMe;
-  SSlice sSlice;
-  int32_t iUsageType = 1;
-  uint8_t* pRef = m_pRefStart + PADDING_LENGTH * m_iWidthExt + PADDING_LENGTH;
-  const int32_t kiMaxBlock16Sad = 72000;//a rough number
-
-  memset (&sSlice, 0, sizeof (sSlice));
-  memset (&sMe, 0, sizeof (sMe));
-  WelsInitSampleSadFunc (&sFuncList, 0); //test c functions
-  WelsInitMeFunc (&sFuncList, 0, iUsageType);
-
-  RandomPixelDataGenerator (m_pSrc, m_iWidth, m_iHeight, m_iWidth);
-  RandomPixelDataGenerator (m_pRefStart, m_iWidthExt, m_iHeightExt, m_iWidthExt);
-
-  sMe.uiBlockSize = BLOCK_16x16; //
-  for (int32_t iMby = 0; iMby < m_iMbHeight; iMby++) {
-    for (int32_t iMbx = 0; iMbx < m_iMbWidth; iMbx++) {
-
-      const uint8_t kuiQp = rand() % 52;
-
-      InitMe (kuiQp, m_uiMvdInterTableSize, m_uiMvdInterTableStride, m_pMvdCostTable, &sMe);
-      SetMvWithinIntegerMvRange (m_iMbWidth, m_iMbHeight, iMbx , iMby, m_iMvRange,
-                                 & (sSlice.sMvStartMin), & (sSlice.sMvStartMax));
-
-
-      sMe.sMvp.iMvX = rand() % m_iMvRange;
-      sMe.sMvp.iMvY = rand() % m_iMvRange;
-      sMe.iCurMeBlockPixX = (iMbx << 4);
-      sMe.iCurMeBlockPixY = (iMby << 4);
-      sMe.pRefMb = pRef + sMe.iCurMeBlockPixX + sMe.iCurMeBlockPixY * m_iWidthExt;
-      sMe.pEncMb = m_pSrc + sMe.iCurMeBlockPixX + sMe.iCurMeBlockPixY * m_iWidth;;
-      sMe.uiSadCost = sMe.uiSatdCost = kiMaxBlock16Sad;
-      sMe.pColoRefMb = sMe.pRefMb;
-      WelsMotionCrossSearch (&sFuncList, &sMe, &sSlice, m_iWidth, m_iWidthExt);
-      if ((WELS_ABS (sMe.sMv.iMvX) > m_iMvRange))
-        printf ("mvx = %d\n", sMe.sMv.iMvX);
-      ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvX) > m_iMvRange));
-      if ((WELS_ABS (sMe.sMv.iMvY) > m_iMvRange))
-        printf ("mvy = %d\n", sMe.sMv.iMvY);
-      ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvY) > m_iMvRange));
-    }
-  }
-}
+//TEST_F (MotionEstimateRangeTest, TestDiamondSearch) {
+//
+//  const int32_t kiMaxBlock16Sad = 72000;//a rough number
+//  uint8_t* pRef = m_pRefStart + PADDING_LENGTH * m_iWidthExt + PADDING_LENGTH;
+//  SWelsFuncPtrList sFuncList;
+//  SWelsME sMe;
+//  SSlice sSlice;
+//  const uint8_t kuiQp = rand() % 52;
+//  InitMe (kuiQp, m_uiMvdInterTableSize, m_uiMvdInterTableStride, m_pMvdCostTable, &sMe);
+//
+//  WelsInitSampleSadFunc (&sFuncList, 0); //test c functions
+//
+//  memset (&sSlice, 0, sizeof (sSlice));
+//  memset (m_pSrc, 128, m_iWidth * m_iHeight);
+//  memset (m_pRefStart, 0, m_iWidthExt * m_iHeightExt);
+//
+//  sMe.uiBlockSize = BLOCK_16x16; //
+//
+//  sMe.sMvp.iMvX = rand() % m_iMvRange;
+//  sMe.sMvp.iMvY = rand() % m_iMvRange;
+//
+//  for (int h = 0; h < m_iHeight; h++)
+//    memset (pRef + h * m_iWidthExt, h, m_iWidthExt);
+//
+//  sMe.pEncMb = m_pSrc;
+//
+//  sMe.sMv.iMvX = sMe.sMvp.iMvX;
+//  sMe.sMv.iMvY = sMe.sMvp.iMvY;
+//
+//  sMe.uiSadCost = sMe.uiSatdCost = kiMaxBlock16Sad;
+//  SetMvWithinIntegerMvRange (m_iMbWidth, m_iMbHeight,     0, 0, m_iMvRange,
+//                             & (sSlice.sMvStartMin), & (sSlice.sMvStartMax));
+//
+//
+//  sMe.pRefMb = pRef + sMe.sMvp.iMvY * m_iWidthExt;
+//  WelsDiamondSearch (&sFuncList, &sMe, &sSlice, m_iWidth, m_iWidthExt);
+//
+//  if ((WELS_ABS (sMe.sMv.iMvX) > m_iMvRange))
+//    printf ("mvx = %d\n", sMe.sMv.iMvX);
+//  ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvX) > m_iMvRange));
+//  if ((WELS_ABS (sMe.sMv.iMvY) > m_iMvRange))
+//    printf ("mvy = %d\n", sMe.sMv.iMvY);
+//  ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvY) > m_iMvRange));
+//
+//
+//}
+//
+//TEST_F (MotionEstimateRangeTest, TestWelsMotionCrossSearch) {
+//
+//  SWelsFuncPtrList sFuncList;
+//  SWelsME sMe;
+//  SSlice sSlice;
+//  int32_t iUsageType = 1;
+//  uint8_t* pRef = m_pRefStart + PADDING_LENGTH * m_iWidthExt + PADDING_LENGTH;
+//  const int32_t kiMaxBlock16Sad = 72000;//a rough number
+//
+//  memset (&sSlice, 0, sizeof (sSlice));
+//  memset (&sMe, 0, sizeof (sMe));
+//  WelsInitSampleSadFunc (&sFuncList, 0); //test c functions
+//  WelsInitMeFunc (&sFuncList, 0, iUsageType);
+//
+//  RandomPixelDataGenerator (m_pSrc, m_iWidth, m_iHeight, m_iWidth);
+//  RandomPixelDataGenerator (m_pRefStart, m_iWidthExt, m_iHeightExt, m_iWidthExt);
+//
+//  sMe.uiBlockSize = BLOCK_16x16; //
+//  for (int32_t iMby = 0; iMby < m_iMbHeight; iMby++) {
+//    for (int32_t iMbx = 0; iMbx < m_iMbWidth; iMbx++) {
+//
+//      const uint8_t kuiQp = rand() % 52;
+//
+//      InitMe (kuiQp, m_uiMvdInterTableSize, m_uiMvdInterTableStride, m_pMvdCostTable, &sMe);
+//      SetMvWithinIntegerMvRange (m_iMbWidth, m_iMbHeight, iMbx , iMby, m_iMvRange,
+//                                 & (sSlice.sMvStartMin), & (sSlice.sMvStartMax));
+//
+//
+//      sMe.sMvp.iMvX = rand() % m_iMvRange;
+//      sMe.sMvp.iMvY = rand() % m_iMvRange;
+//      sMe.iCurMeBlockPixX = (iMbx << 4);
+//      sMe.iCurMeBlockPixY = (iMby << 4);
+//      sMe.pRefMb = pRef + sMe.iCurMeBlockPixX + sMe.iCurMeBlockPixY * m_iWidthExt;
+//      sMe.pEncMb = m_pSrc + sMe.iCurMeBlockPixX + sMe.iCurMeBlockPixY * m_iWidth;;
+//      sMe.uiSadCost = sMe.uiSatdCost = kiMaxBlock16Sad;
+//      sMe.pColoRefMb = sMe.pRefMb;
+//      WelsMotionCrossSearch (&sFuncList, &sMe, &sSlice, m_iWidth, m_iWidthExt);
+//      if ((WELS_ABS (sMe.sMv.iMvX) > m_iMvRange))
+//        printf ("mvx = %d\n", sMe.sMv.iMvX);
+//      ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvX) > m_iMvRange));
+//      if ((WELS_ABS (sMe.sMv.iMvY) > m_iMvRange))
+//        printf ("mvy = %d\n", sMe.sMv.iMvY);
+//      ASSERT_TRUE (! (WELS_ABS (sMe.sMv.iMvY) > m_iMvRange));
+//    }
+//  }
+//}
 void MotionEstimateTest::DoLineTest (PLineFullSearchFunc func, bool vertical) {
   const int32_t kiMaxBlock16Sad = 72000;//a rough number
   SWelsFuncPtrList sFuncList;

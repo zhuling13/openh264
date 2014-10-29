@@ -135,7 +135,7 @@ HRESULT CD3D9Utils::Process (void* pDst[3], SBufferInfo* pInfo, FILE* pFp) {
   if (m_bInitDone) {
     if (bWindowed) {
       hResult = Render (pDst, pInfo);
-      Sleep (30);
+      Sleep (300);
     } else if (pFp) {
       hResult = Dump (pDst, pInfo, pFp);
       Sleep (0);
@@ -316,7 +316,7 @@ HRESULT CD3D9ExUtils::Process (void* pDst[3], SBufferInfo* pInfo, FILE* pFp) {
   if (m_bInitDone) {
     if (bWindowed) {
       hResult = Render (pDst, pInfo);
-      Sleep (30); // set a simple time controlling with default of 30fps
+      Sleep (300); // set a simple time controlling with default of 30fps
     } else if (pFp) {
       hResult = Dump (pDst, pInfo, pFp);
       Sleep (0);

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <stdio.h>
 #include "codec_def.h"
 #include "codec_app_def.h"
 #include "codec_api.h"
@@ -11,6 +12,7 @@ using namespace WelsDec;
 #define BUF_SIZE 100
 //payload size exclude 6 bytes: 0001, nal type and final '\0'
 #define PAYLOAD_SIZE (BUF_SIZE - 6)
+
 class DecoderInterfaceTest : public ::testing::Test {
  public:
   virtual void SetUp() {
@@ -28,6 +30,8 @@ class DecoderInterfaceTest : public ::testing::Test {
   void Init();
   //Uninit members
   void Uninit();
+  //Read real bitstream from res 
+ // void LoadBitstream(std::ifstream* file, BufferedData* buf);
   //Mock input data for test
   void MockPacketType (const EWelsNalUnitType eNalUnitType, const int iPacketLength);
   //Test Initialize/Uninitialize
@@ -58,6 +62,7 @@ class DecoderInterfaceTest : public ::testing::Test {
   void TestTraceCallbackContext();
   //Do whole tests here
   void DecoderInterfaceAll();
+  void TestGetDecStatistics();
 
 
  public:
@@ -104,6 +109,131 @@ void DecoderInterfaceTest::Uninit() {
   m_iBufLength = 0;
 }
 
+void DecoderInterfaceTest::TestGetDecStatistics()
+{
+  uint8_t* pBuf = NULL;
+  int32_t iBufPos = 0;
+  int32_t iFileSize;
+  int32_t i = 0;
+  int32_t iSliceSize;
+  int32_t iSliceIndex = 0;
+  int32_t iEndOfStreamFlag = 0;
+  int32_t iFrameCount=0;
+  int32_t iError = 2;
+  CM_RETURN eRet;
+  SDecoderStatistics sDecStatic;
+  Init();
+  eRet=(CM_RETURN)m_pDec->SetOption(DECODER_OPTION_GET_STATISTICS,NULL);
+  EXPECT_EQ (eRet, cmResultSuccess);
+  m_pDec->SetOption(DECODER_OPTION_ERROR_CON_IDC,&iError);
+   // EC error bs
+  uint8_t uiStartCode[4] = {0, 0, 0, 1};
+  FILE* pH264File	= fopen ("res/test.264", "rb");
+  fseek (pH264File, 0L, SEEK_END);
+  iFileSize = (int32_t) ftell (pH264File);
+  fseek (pH264File, 0L, SEEK_SET);
+  pBuf = new uint8_t[iFileSize + 4];
+  fread (pBuf, 1, iFileSize, pH264File);
+  memcpy (pBuf + iFileSize, &uiStartCode[0], 4); //confirmed_safe_unsafe_usage
+  while (true) {
+  if (iBufPos >= iFileSize) {
+      iEndOfStreamFlag = true;
+      if (iEndOfStreamFlag)
+        m_pDec->SetOption (DECODER_OPTION_END_OF_STREAM, (void*)&iEndOfStreamFlag);
+      break;
+    }
+    for (i = 0; i < iFileSize; i++) {
+      if ((pBuf[iBufPos + i] == 0 && pBuf[iBufPos + i + 1] == 0 && pBuf[iBufPos + i + 2] == 0 && pBuf[iBufPos + i + 3] == 1
+           && i > 0)) {
+        break;
+      }
+    }
+  iSliceSize = i;	
+  m_pDec->DecodeFrame2 (pBuf + iBufPos, iSliceSize, m_pData, &m_sBufferInfo);
+  if(m_sBufferInfo.iBufferStatus ==1)
+  {
+	iFrameCount++;
+	switch(iFrameCount)
+		{
+		case 1:
+			m_pDec->GetOption(DECODER_OPTION_GET_STATISTICS,&sDecStatic);
+			EXPECT_TRUE(sDecStatic.bErrorConcealed);
+			EXPECT_EQ(66,sDecStatic.uiAvgEcRatio);
+			EXPECT_EQ(1,sDecStatic.uiDecodedFrameCount);
+			EXPECT_EQ(1,sDecStatic.uiFrameRecvNum);
+			EXPECT_EQ(288,sDecStatic.uiHeight);
+			EXPECT_EQ(1,sDecStatic.uiIDRRecvNum);
+			EXPECT_EQ(1,sDecStatic.uiResolutionChangeTimes);
+			EXPECT_EQ(352,sDecStatic.uiWidth);
+			break;
+		case 2:
+			iError = 1;
+			m_pDec->SetOption(DECODER_OPTION_ERROR_CON_IDC,&iError);
+			m_pDec->GetOption(DECODER_OPTION_GET_STATISTICS,&sDecStatic);
+			EXPECT_TRUE(sDecStatic.bErrorConcealed);
+			EXPECT_LT(0,sDecStatic.fAverageFrameSpeedInMs);
+			EXPECT_EQ(66,sDecStatic.uiAvgEcRatio);
+			EXPECT_EQ(1,sDecStatic.uiDecodedFrameCount);
+			EXPECT_EQ(1,sDecStatic.uiFrameRecvNum);
+			EXPECT_EQ(288,sDecStatic.uiHeight);
+			EXPECT_EQ(0,sDecStatic.uiIDRRecvNum);
+			EXPECT_EQ(1,sDecStatic.uiResolutionChangeTimes);
+			EXPECT_EQ(352,sDecStatic.uiWidth);
+			break;
+		case 3:
+			m_pDec->GetOption(DECODER_OPTION_GET_STATISTICS,&sDecStatic);
+			EXPECT_FALSE(sDecStatic.bErrorConcealed);
+			EXPECT_GT(1,sDecStatic.fAverageFrameSpeedInMs);
+			EXPECT_EQ(0,sDecStatic.uiAvgEcRatio);
+			EXPECT_EQ(1,sDecStatic.uiDecodedFrameCount);
+			EXPECT_EQ(1,sDecStatic.uiFrameRecvNum);
+			EXPECT_EQ(480,sDecStatic.uiHeight);
+			EXPECT_EQ(1,sDecStatic.uiIDRRecvNum);
+			EXPECT_EQ(1,sDecStatic.uiResolutionChangeTimes);
+			EXPECT_EQ(640,sDecStatic.uiWidth);
+			break;
+		case 4:
+			break;
+		case 5:
+			m_pDec->GetOption(DECODER_OPTION_GET_STATISTICS,&sDecStatic);
+			EXPECT_TRUE(sDecStatic.bErrorConcealed);
+			EXPECT_EQ(100,sDecStatic.uiAvgEcRatio);
+			EXPECT_EQ(2,sDecStatic.uiDecodedFrameCount);
+			EXPECT_EQ(2,sDecStatic.uiFrameRecvNum);
+			EXPECT_EQ(288,sDecStatic.uiHeight);
+			EXPECT_EQ(1,sDecStatic.uiIDRRecvNum);
+			EXPECT_EQ(2,sDecStatic.uiResolutionChangeTimes);
+			EXPECT_EQ(352,sDecStatic.uiWidth);
+			
+
+			
+			m_pDec->GetOption(DECODER_OPTION_GET_STATISTICS,&sDecStatic);
+			EXPECT_FALSE(sDecStatic.bErrorConcealed);
+			EXPECT_EQ(0,sDecStatic.uiAvgEcRatio);
+           EXPECT_EQ(0,sDecStatic.uiDecodedFrameCount);
+   EXPECT_EQ(0,sDecStatic.uiFrameRecvNum);
+   EXPECT_EQ(0,sDecStatic.uiHeight);
+   EXPECT_EQ(0,sDecStatic.uiIDRRecvNum);
+   EXPECT_EQ(0,sDecStatic.uiResolutionChangeTimes);
+   EXPECT_EQ(0,sDecStatic.uiWidth);
+			break;
+		default:
+			break;
+
+
+		}
+		
+	}
+  iBufPos += iSliceSize;
+  ++ iSliceIndex;
+   }
+   fclose(pH264File);
+  
+
+
+   Uninit();
+  
+}
 //Mock input data for test
 void DecoderInterfaceTest::MockPacketType (const EWelsNalUnitType eNalUnitType, const int iPacketLength) {
   switch (eNalUnitType) {
@@ -370,6 +500,7 @@ TEST_F (DecoderInterfaceTest, DecoderInterfaceAll) {
   TestTraceCallback();
   //DECODER_OPTION_TRACE_CALLBACK_CONTEXT
   TestTraceCallbackContext();
+  TestGetDecStatistics();
 }
 
 

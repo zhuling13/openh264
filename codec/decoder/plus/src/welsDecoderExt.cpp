@@ -1,3 +1,4 @@
+
 /*!
  * \copy
  *     Copyright (c)  2009-2013, Cisco Systems
@@ -52,6 +53,8 @@
 #include "decoder.h"
 #include "decoder_core.h"
 #include "error_concealment.h"
+
+#include "measure_time.h"
 
 extern "C" {
 #include "decoder_core.h"
@@ -301,6 +304,11 @@ long CWelsDecoder::SetOption (DECODER_OPTION eOptID, void* pOption) {
       m_pWelsTrace->SetTraceCallbackContext (ctx);
     }
     return cmResultSuccess;
+  }else if(eOptID == DECODER_OPTION_GET_STATISTICS) {
+	   WelsLog (&m_pWelsTrace->m_sLogCtx, WELS_LOG_WARNING,
+             "CWelsDecoder::SetOption():DECODER_OPTION_GET_STATISTICS: this option is get-only!");
+
+    return cmResultSuccess;
   }
 
   return cmInitParaError;
@@ -311,6 +319,7 @@ long CWelsDecoder::SetOption (DECODER_OPTION eOptID, void* pOption) {
  */
 long CWelsDecoder::GetOption (DECODER_OPTION eOptID, void* pOption) {
   int iVal = 0;
+  double dElapsed = 0;
 
   if (m_pDecContext == NULL)
     return cmInitExpected;
@@ -359,6 +368,34 @@ long CWelsDecoder::GetOption (DECODER_OPTION eOptID, void* pOption) {
     * ((int*)pOption) = iVal;
     return cmResultSuccess;
   }
+  else if(DECODER_OPTION_GET_STATISTICS == eOptID) { // get decoder statistics info for real time debugging
+	  SDecoderStatistics* pDecoderStatistics = (static_cast<SDecoderStatistics*>(pOption));
+	  
+	  pDecoderStatistics->uiAvgEcRatio = m_pDecContext->sDecoderStatistics.uiAvgEcRatio;
+	  pDecoderStatistics->bErrorConcealed = m_pDecContext->sDecoderStatistics.bErrorConcealed;
+	  pDecoderStatistics->uiDecodedFrameCount = m_pDecContext->sDecoderStatistics.uiDecodedFrameCount;
+	  pDecoderStatistics->uiHeight = m_pDecContext->sDecoderStatistics.uiHeight;
+	  pDecoderStatistics->uiWidth = m_pDecContext->sDecoderStatistics.uiWidth;
+	  pDecoderStatistics->uiIDRRecvNum = m_pDecContext->sDecoderStatistics.uiIDRRecvNum;
+	  pDecoderStatistics->uiIDRReqNum = m_pDecContext->sDecoderStatistics.uiIDRReqNum;
+	  pDecoderStatistics->uiLTRReqNum = m_pDecContext->sDecoderStatistics.uiLTRReqNum;
+	  pDecoderStatistics->uiFrameRecvNum = m_pDecContext->sDecoderStatistics.uiFrameRecvNum;
+	  pDecoderStatistics->uiResolutionChangeTimes = m_pDecContext->sDecoderStatistics.uiResolutionChangeTimes;
+	  pDecoderStatistics->fAverageFrameSpeedInMs = (m_pDecContext->dDecTime)/( m_pDecContext->sDecoderStatistics.uiDecodedFrameCount);
+	// After output the current status, reinit it
+	  
+	  m_pDecContext->sDecoderStatistics.uiDecodedFrameCount =0;
+	  m_pDecContext->sDecoderStatistics.uiIDRRecvNum =0;
+	  m_pDecContext->sDecoderStatistics.uiFrameRecvNum = 0;
+	  m_pDecContext->sDecoderStatistics.uiResolutionChangeTimes = 0;
+	  m_pDecContext->sDecoderStatistics.bErrorConcealed = false;
+	  m_pDecContext->sDecoderStatistics.uiHeight = 0;
+	  m_pDecContext->sDecoderStatistics.uiWidth = 0;
+	  m_pDecContext->sDecoderStatistics.fAverageFrameSpeedInMs = 0;
+	  m_pDecContext->sDecoderStatistics.uiAvgEcRatio = 0;
+
+	  return cmResultSuccess;
+  }
 
   return cmInitParaError;
 }
@@ -388,7 +425,8 @@ DECODING_STATE CWelsDecoder::DecodeFrame2 (const unsigned char* kpSrc,
     m_pDecContext->bEndOfStreamFlag = true;
     m_pDecContext->bInstantDecFlag = true;
   }
-
+  int64_t iStart,iEnd;
+  iStart = WelsTime();
   ppDst[0] = ppDst[1] = ppDst[2] = NULL;
   m_pDecContext->iErrorCode             = dsErrorFree; //initialize at the starting of AU decoding.
   m_pDecContext->iFeedbackVclNalInAu = FEEDBACK_UNKNOWN_NAL; //initialize
@@ -406,6 +444,7 @@ DECODING_STATE CWelsDecoder::DecodeFrame2 (const unsigned char* kpSrc,
   WelsDecodeBs (m_pDecContext, kpSrc, kiSrcLen, ppDst,
                 pDstInfo); //iErrorCode has been modified in this function
   m_pDecContext->bInstantDecFlag = false; //reset no-delay flag
+
   if (m_pDecContext->iErrorCode) {
     EWelsNalUnitType eNalType =
       NAL_UNIT_UNSPEC_0;	//for NBR, IDR frames are expected to decode as followed if error decoding an IDR currently
@@ -439,10 +478,43 @@ DECODING_STATE CWelsDecoder::DecodeFrame2 (const unsigned char* kpSrc,
     if ((m_pDecContext->eErrorConMethod != ERROR_CON_DISABLE) && (pDstInfo->iBufferStatus == 1)) {
       //TODO after dec status updated
       m_pDecContext->iErrorCode |= dsDataErrorConcealed;
+	  if(m_pDecContext->eErrorConMethod == ERROR_CON_FRAME_COPY)
+		  m_pDecContext->sDecoderStatistics.uiAvgEcRatio = 100;
+	  //
+	  if(m_pDecContext->sDecoderStatistics.uiWidth != pDstInfo->UsrData.sSystemBuffer.iWidth)
+	  {
+		  m_pDecContext->sDecoderStatistics.uiResolutionChangeTimes++;
+	      m_pDecContext->sDecoderStatistics.uiWidth = pDstInfo->UsrData.sSystemBuffer.iWidth;
+	      m_pDecContext->sDecoderStatistics.uiHeight = pDstInfo->UsrData.sSystemBuffer.iHeight;
+
+	  }
+	  m_pDecContext->sDecoderStatistics.uiDecodedFrameCount++;
+	  m_pDecContext->sDecoderStatistics.bErrorConcealed = true;
+	  iEnd = WelsTime();
+	  m_pDecContext->dDecTime += (iEnd - iStart)/1e6;
     }
+
     return (DECODING_STATE) m_pDecContext->iErrorCode;
   }
   // else Error free, the current codec works well
+  if(pDstInfo->iBufferStatus ==1)
+  {
+	 
+	  if(m_pDecContext->sDecoderStatistics.uiWidth != pDstInfo->UsrData.sSystemBuffer.iWidth)
+	  {
+		  m_pDecContext->sDecoderStatistics.uiResolutionChangeTimes++;
+	      m_pDecContext->sDecoderStatistics.uiWidth = pDstInfo->UsrData.sSystemBuffer.iWidth;
+	      m_pDecContext->sDecoderStatistics.uiHeight = pDstInfo->UsrData.sSystemBuffer.iHeight;
+
+	  }
+	  m_pDecContext->sDecoderStatistics.uiDecodedFrameCount++;
+	  iEnd = WelsTime();
+	  m_pDecContext->dDecTime += (iEnd - iStart)/1e6;
+	  m_pDecContext->sDecoderStatistics.uiAvgEcRatio = 0;
+      m_pDecContext->sDecoderStatistics.bErrorConcealed = false;
+
+	  
+  }
 
   return dsErrorFree;
 }

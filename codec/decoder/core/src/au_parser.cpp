@@ -304,6 +304,7 @@ uint8_t* ParseNalHeader (PWelsDecoderContext pCtx, SNalUnitHeader* pNalUnitHeade
 
       pCurNal->sNalHeaderExt.bIdrFlag = (NAL_UNIT_CODED_SLICE_IDR == pNalUnitHeader->eNalUnitType) ? true :
                                         false;   //SHOULD update this flag for AVC if no prefix NAL
+
       pCurNal->sNalHeaderExt.iNoInterLayerPredFlag = 1;
     }
 
@@ -334,6 +335,10 @@ uint8_t* ParseNalHeader (PWelsDecoderContext pCtx, SNalUnitHeader* pNalUnitHeade
     if ((uiAvailNalNum > 1) &&
         CheckAccessUnitBoundary (pCtx, pCurAu->pNalUnitsList[uiAvailNalNum - 1], pCurAu->pNalUnitsList[uiAvailNalNum - 2],
                                  pCurAu->pNalUnitsList[uiAvailNalNum - 1]->sNalData.sVclNal.sSliceHeaderExt.sSliceHeader.pSps)) {
+		pCtx->sDecoderStatistics.uiFrameRecvNum++;
+	 if(pCurAu->pNalUnitsList[uiAvailNalNum - 2]->sNalHeaderExt.bIdrFlag)	
+	       pCtx->sDecoderStatistics.uiIDRRecvNum++;
+
       pCurAu->uiEndPos = uiAvailNalNum - 2;
       pCtx->bAuReadyFlag = true;
       pCtx->bNextNewSeqBegin = CheckNextAuNewSeq (pCtx, pCurNal, pCurNal->sNalData.sVclNal.sSliceHeaderExt.sSliceHeader.pSps);

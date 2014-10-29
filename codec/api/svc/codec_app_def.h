@@ -492,6 +492,8 @@ typedef struct TagVideoDecoderStatistics {
   unsigned int uiIDRReqNum;	// number of actual IDR request
   unsigned int uiLTRReqNum;	// number of actual LTR request
   unsigned int uiIDRRecvNum;	// number of actual IDR received
+  bool bErrorConcealed; // The constructed or output frame is ECed 
+  unsigned int uiFrameRecvNum;
 } SDecoderStatistics; // in building, coming soon
 
 #endif//WELS_VIDEO_CODEC_APPLICATION_DEFINITION_H__

@@ -325,6 +325,10 @@ void*      pTraceHandle;
 //Save the last nal header info
 SNalUnitHeaderExt sLastNalHdrExt;
 SSliceHeader      sLastSliceHeader;
+double dDecTime;
+
+
+SDecoderStatistics sDecoderStatistics;// For real time debugging
 
 } SWelsDecoderContext, *PWelsDecoderContext;
 
